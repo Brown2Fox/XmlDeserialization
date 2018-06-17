@@ -5,7 +5,7 @@ namespace XmlDeserialization
 {
     public class ProgramOpts
     {
-        public static string InputDirectory;
+        public static string InputDirectory = ".";
         
         private static OptionSet optSet = new OptionSet()
         {
@@ -16,14 +16,8 @@ namespace XmlDeserialization
         };
         
         public static void ParseArgs(string[] args)
-        { 
-           optSet.Parse(args);   
-        }
-
-        public static bool Check()
         {
-            if (string.IsNullOrEmpty(InputDirectory)) return true;
-            return false;
+            optSet.Parse(args);
         }
 
         public static void HelpMessage()

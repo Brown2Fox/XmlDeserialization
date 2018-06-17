@@ -19,5 +19,3 @@
         <str name="uid" value="eef9edde7f8e7dbeabc12f72e1f35e99">
         <str name="operand" value="subtract" />
         <int name="mod" value="8" />
-    </folder>
-</folder>

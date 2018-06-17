@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using Mono.Options;
 
 namespace XmlDeserialization
 {
@@ -14,16 +15,25 @@ namespace XmlDeserialization
         
         public static void Main(string[] args)
         {
-            ProgramOpts.ParseArgs(args);
-            if (ProgramOpts.Check()){ ProgramOpts.HelpMessage(); return; }
+            try
+            {
+                ProgramOpts.ParseArgs(args);
+            }
+            catch (OptionException e)
+            {
+                Console.WriteLine(e.Message);
+                ProgramOpts.HelpMessage();
+                return;
+            }
+            
             
             var XMLFileExtentionRgx = new Regex(@".+\.xml", RegexOptions.IgnoreCase);
 
             var tasksToProcess = new List<Task>();
             var parsers = new List<CalculationsParser>();
             
-            var fileNames = Directory.GetFiles(ProgramOpts.InputDirectory);
-            
+            var fileNames = Directory.GetFiles(ProgramOpts.InputDirectory);       
+     
             foreach (var fileName in fileNames)
             {
                 if (XMLFileExtentionRgx.IsMatch(fileName))
@@ -35,7 +45,8 @@ namespace XmlDeserialization
                 }
             }
             
-            Console.WriteLine("Tasks count: " + tasksToProcess.Count);
+            Console.WriteLine("Files to process: " + tasksToProcess.Count);
+            if (tasksToProcess.Count == 0) return;
             
             Stopwatch watch = new Stopwatch();
             watch.Start();
@@ -49,11 +60,22 @@ namespace XmlDeserialization
 
             watch.Stop();
 
-            var max = parsers.Max(p => p.ProcessedItems);
-            var mp = parsers.First(p => p.ProcessedItems == max);
+            
+            Console.WriteLine("--- ALL RESULTS ---");
+            foreach (var p in parsers)
+            {
+                Console.WriteLine($"File: {Path.GetFileName(p.FileName)}, Result: {p.Result}, Processed Items: {p.Calculations.Count}");
+            }
+            
+            var max = parsers.Max(p => p.Calculations.Count);
+            var mps = parsers.FindAll(p => p.Calculations.Count == max);
 
-            Console.WriteLine($"{mp.FileName}: processed items = {mp.ProcessedItems}, result = {mp.Result}");
-            Console.WriteLine($"Elapced time is {watch.ElapsedMilliseconds.ToString()} ms");
+            Console.WriteLine("--- BEST RESULTS ---");
+            foreach (var mp in mps)
+            {
+                Console.WriteLine($"File: {Path.GetFileName(mp.FileName)}, Result: {mp.Result}, Processed Items: {mp.Calculations.Count}");    
+            }
+            Console.WriteLine($"Elapced time: {watch.ElapsedMilliseconds.ToString()} ms");
         }
     }
 }

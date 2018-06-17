@@ -1,4 +1,6 @@
-﻿namespace XmlDeserialization
+﻿using System;
+
+namespace XmlDeserialization
 {
     public enum Operation
     {

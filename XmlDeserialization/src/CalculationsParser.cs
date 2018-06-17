@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data;
 using System.IO;
 using System.Text.RegularExpressions;
 
@@ -13,7 +14,7 @@ namespace XmlDeserialization
         public CalculationsParser(string fileName)
         {
             FileName = fileName;
-            calculations = new List<Calculation>();
+            Calculations = new List<Calculation>();
         }
         
 #endregion CTORS
@@ -31,32 +32,37 @@ namespace XmlDeserialization
 
             string ReadLine() { lineNum++; return file.ReadLine(); }
 
-            for (;(line = ReadLine()) != null;)
+            while ((line = ReadLine()) != null)
             {  
                 if (IsCalculationItemStart(line))
                 {
-                    for (var i = 0; i < 3; i++)
+                    var uid = ReadUid(ReadLine());
+                    if (uid == null)
                     {
-                        line = ReadLine(); 
-                        if (line != null)
-                        {
-                            calcItem[i] = line;    
-                        }
+                        PrintError(lineNum); continue;
                     }
 
-                    line = ReadLine();
-                    if (IsCalculationItemEnd(line))
+                    var op = ReadOperation(ReadLine());
+                    if (op == null)
                     {
-                        var calc = ReadCalculation(calcItem);
-                        if (calc != null)
-                        {
-                            calculations.Add(calc);
-                            Calculate(calc);
-                        }
-                        else
-                        {
-                            Console.WriteLine($"Error in file {FileName}: {ErrorMessage}, lines {lineNum-4}-{lineNum}");
-                        }
+                        PrintError(lineNum); continue;
+                    }
+
+                    var mod = ReadMod(ReadLine());
+                    if (mod == null)
+                    {
+                        PrintError(lineNum); continue;
+                    }
+
+                    if (IsCalculationItemEnd(ReadLine()))
+                    {
+                        var calc = new Calculation(uid, OperationMethods.Parse(op), int.Parse(mod));
+                        Calculations.Add(calc);
+                        Calculate(calc);
+                    }
+                    else
+                    {
+                        PrintError(lineNum);
                     }
                 }
             }  
@@ -66,48 +72,52 @@ namespace XmlDeserialization
 
 #region PRIVATE_METHODS
 
-        private static bool IsCalculationItemStart(string str)
+        private void PrintError(int lineNum)
         {
-            return str.Contains("<folder name=\"calculation\">");
+            Console.WriteLine($"Error in file {Path.GetFileName(FileName)}: {ErrorMessage}, line {lineNum}");   
+        }
+        
+        private bool IsCalculationItemStart(string line)
+        {
+            var StartRgx = new Regex("<folder +name=\"calculation\" *>");
+            return !string.IsNullOrEmpty(line) && StartRgx.IsMatch(line);
         }
 
-        private static bool IsCalculationItemEnd(string str)
+        private bool IsCalculationItemEnd(string line)
         {
-            return str.Contains("</folder>");
+            var EndRgx = new Regex("(</folder>)");
+            return null != ReadItem(EndRgx, line);
         }
 
-        private Calculation ReadCalculation(string[] calcItem)
+        private string ReadUid(string line)
         {
-            var UidRgx = new Regex("<str +name=\"uid\" +value=\"([0-9a-f]*)\" *>"); // FIXME: */> ???
-            
-            if (!UidRgx.IsMatch(calcItem[0]))
-            {
-                ErrorMessage = $"Expected '<str name=\"uid\" value=\"...\">', but found '{calcItem[0]}'";
-                return null;
-            }
-            var uid = UidRgx.Match(calcItem[0]).Groups[1].Value;         
-            
+            var UidRgx = new Regex("<str +name=\"uid\" +value=\"([0-9a-f]*)\" *>"); // FIXME: */> ?
+            return ReadItem(UidRgx, line);
+        }
+
+        private string ReadOperation(string line)
+        {              
             var OpRgx = new Regex("<str +name=\"operand\" +value=\"([a-z]*)\" */>");
-            
-            if (!OpRgx.IsMatch(calcItem[1]))
-            {
-                ErrorMessage = $"Expected '<str name=\"operand\" value=...>', but found '{calcItem[1]}'";
-                return null;
-            }      
-            var op = OperationMethods.Parse(OpRgx.Match(calcItem[1]).Groups[1].Value);
-            
-            var ModRgx = new Regex("<int +name=\"mod\" +value=\"([0-9]*)\" */>");
-
-            if (!ModRgx.IsMatch(calcItem[2]))
-            {
-                ErrorMessage = $"Expected '<int name=\"mod\" value=\"...\">', but found '{calcItem[2]}'";
-                return null;
-            }
-            var mod = int.Parse(ModRgx.Match(calcItem[2]).Groups[1].Value);
-            
-            return new Calculation(uid, op, mod);
+            return ReadItem(OpRgx, line);
         }
 
+        private string ReadMod(string line)
+        {
+            var ModRgx = new Regex("<int +name=\"mod\" +value=\"([0-9]*)\" */>");
+            return ReadItem(ModRgx, line);
+        }
+
+        private string ReadItem(Regex rgx, string line)
+        {
+            if (string.IsNullOrEmpty(line) || !rgx.IsMatch(line))
+            {
+                var found = !string.IsNullOrEmpty(line) ? line.TrimStart(' ') : "empty";
+                ErrorMessage = $"Expected '{rgx}', but found '{found}'";
+                return null;
+            }
+            return rgx.Match(line).Groups[1].Value;
+        }
+        
         private void Calculate(Calculation calc)
         {
             switch (calc.Op)
@@ -131,8 +141,7 @@ namespace XmlDeserialization
         
 #region FIELDS_PROPS
         
-        private List<Calculation> calculations;
-        public int ProcessedItems => calculations.Count;
+        public List<Calculation> Calculations { get; }      
 
         public string FileName { get; private set; }
         public int Result { get; private set; }
