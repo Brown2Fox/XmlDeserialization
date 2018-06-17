@@ -91,7 +91,7 @@ namespace XmlDeserialization
 
         private string ReadUid(string line)
         {
-            var UidRgx = new Regex("<str +name=\"uid\" +value=\"([0-9a-f]*)\" *>"); // FIXME: */> ?
+            var UidRgx = new Regex("<str +name=\"uid\" +value=\"([0-9a-f]*)\"[ /]*>"); // FIXME: */> ?
             return ReadItem(UidRgx, line);
         }
 
